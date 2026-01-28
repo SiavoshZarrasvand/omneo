@@ -21,6 +21,7 @@ model Contact {
   rating        Float?
   reviews       Int?
   googleMapsUrl String?
+  inviteCode    String?   @unique
   contacted     Boolean   @default(false)
   contactedAt   DateTime?
   createdAt     DateTime  @default(now())
