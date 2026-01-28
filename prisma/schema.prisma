@@ -1,0 +1,31 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Contact {
+  id            String    @id @default(uuid())
+  name          String
+  phone         String    @unique
+  email         String?
+  website       String?
+  address       String?
+  category      String?
+  rating        Float?
+  reviews       Int?
+  googleMapsUrl String?
+  contacted     Boolean   @default(false)
+  contactedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([contacted])
+  @@index([phone])
+}

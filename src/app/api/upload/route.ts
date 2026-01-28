@@ -1,0 +1,123 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/db'
+import Papa from 'papaparse'
+import JSZip from 'jszip'
+
+interface CSVRow {
+  Name: string
+  Rating: string
+  Reviews: string
+  Category: string
+  Address: string
+  Phone: string
+  Email: string
+  Website: string
+  Hours: string
+  'Google Maps URL': string
+}
+
+export async function POST ( request: NextRequest ) {
+  try {
+    const formData = await request.formData()
+    const files = formData.getAll( 'files' ) as File[]
+
+    if ( !files || files.length === 0 ) {
+      return NextResponse.json(
+        { error: 'No files provided' },
+        { status: 400 }
+      )
+    }
+
+    let totalContacts = 0
+    let newContacts = 0
+    let updatedContacts = 0
+    const allCsvContent: string[] = []
+
+    // Process each file
+    for ( const file of files ) {
+      const buffer = await file.arrayBuffer()
+      const fileContent = Buffer.from( buffer )
+
+      if ( file.name.endsWith( '.zip' ) ) {
+        // Extract ZIP and get CSV files
+        const zip = await JSZip.loadAsync( fileContent )
+        const csvFiles = Object.keys( zip.files ).filter(
+          ( name ) => name.endsWith( '.csv' ) && !name.startsWith( '__MACOSX' )
+        )
+
+        for ( const csvFileName of csvFiles ) {
+          const csvFile = zip.files[ csvFileName ]
+          const csvText = await csvFile.async( 'text' )
+          allCsvContent.push( csvText )
+        }
+      } else if ( file.name.endsWith( '.csv' ) ) {
+        // Process CSV directly
+        const csvText = fileContent.toString( 'utf-8' )
+        allCsvContent.push( csvText )
+      }
+    }
+
+    // Parse and import all CSV content
+    for ( const csvText of allCsvContent ) {
+      const parseResult = Papa.parse<CSVRow>( csvText, {
+        header: true,
+        skipEmptyLines: true,
+        transformHeader: ( header ) => header.trim(),
+      } )
+
+      for ( const row of parseResult.data ) {
+        if ( !row.Name || !row.Phone ) continue
+
+        const phone = row.Phone.trim()
+        if ( !phone ) continue
+
+        totalContacts++
+
+        // Upsert contact (deduplicate by phone)
+        const existingContact = await prisma.contact.findUnique( {
+          where: { phone },
+        } )
+
+        const contactData = {
+          name: row.Name.trim(),
+          phone,
+          email: row.Email?.trim() || null,
+          website: row.Website?.trim() || null,
+          address: row.Address?.trim() || null,
+          category: row.Category?.trim() || null,
+          rating: row.Rating ? parseFloat( row.Rating ) : null,
+          reviews: row.Reviews ? parseInt( row.Reviews, 10 ) : null,
+          googleMapsUrl: row[ 'Google Maps URL' ]?.trim() || null,
+        }
+
+        if ( existingContact ) {
+          await prisma.contact.update( {
+            where: { phone },
+            data: contactData,
+          } )
+          updatedContacts++
+        } else {
+          await prisma.contact.create( {
+            data: contactData,
+          } )
+          newContacts++
+        }
+      }
+    }
+
+    return NextResponse.json( {
+      success: true,
+      summary: {
+        totalProcessed: totalContacts,
+        newContacts,
+        updatedContacts,
+      },
+    } )
+  } catch ( error ) {
+    console.error( 'Upload error:', error )
+    return NextResponse.json(
+      { error: 'Failed to process upload' },
+      { status: 500 }
+    )
+  }
+}
