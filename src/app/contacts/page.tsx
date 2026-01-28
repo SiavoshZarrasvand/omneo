@@ -78,7 +78,7 @@ export default function ContactsPage() {
             onClick={() => router.push('/')}
             className="text-2xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent hover:opacity-80 transition-opacity"
           >
-            Z-CRM
+            XYZ
           </button>
           <button
             onClick={() => router.push('/')}

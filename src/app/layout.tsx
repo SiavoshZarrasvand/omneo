@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Z-CRM | Premium Customer Management",
+  title: "XYZ | Premium Customer Management",
   description: "Next-gen CRM platform.",
 };
 
